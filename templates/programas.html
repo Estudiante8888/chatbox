@@ -5,4 +5,11 @@
 {% block content %}
 <h1>Programas</h1>
 <p>Lorem ipsum dolor sit amet consectetur adipisicing elit. Natus maiores libero laborum</p>
+<form action="/vision">
+  <label for="codcarrera">Codigo de carrera:</label><br>
+  <input type="number" id="codcarrera" name="codcarrera" value=""><br><br>
+  <label for="descarrera">Descripción carrera:</label><br>
+  <input type="text" id="descarrera" name="descarrera" value="Digite la carrera"><br><br>
+  <input type="submit" value="Agregar">
+</form> 
 {% endblock %}
