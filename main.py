@@ -14,10 +14,13 @@ def base():
 def mision():
     return render_template('mision.html')
 
-@app.route("/vision", methods=['GET', 'POST'])
+@app.route("/vision", methods=['GET','POST'])
 def vision():
     if request.method == 'POST':
-        print(request.form)
+        datos = request.form
+        print(datos)
+    else:
+        print("Metodo GET")
     return render_template('vision.html')
 
 @app.route("/programas")
