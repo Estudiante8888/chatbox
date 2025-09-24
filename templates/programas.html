@@ -4,12 +4,13 @@
 
 {% block content %}
 <h1>Programas</h1>
-<p>Lorem ipsum dolor sit amet consectetur adipisicing elit. Natus maiores libero laborum</p>
-<form action="/vision", method="post">
-  <label for="codcarrera">Codigo de carrera:</label><br>
-  <input type="number" id="codcarrera" name="codcarrera" value=""><br><br>
+
+<form action="/programas" method="post">
+  <label for="codcarrera">Código de carrera:</label><br>
+  <input type="number" id="codcarrera" name="codcarrera" required><br><br>
   <label for="descarrera">Descripción carrera:</label><br>
-  <input type="text" id="descarrera" name="descarrera" value="Digite la carrera"><br><br>
+  <input type="text" id="descarrera" name="descarrera" placeholder="Digite la carrera" required><br><br>
   <input type="submit" value="Agregar">
-</form> 
+</form>
+
 {% endblock %}

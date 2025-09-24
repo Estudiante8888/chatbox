@@ -1,34 +1,39 @@
 import sqlite3
+import os
 
 def create_connection(db_file):
-    """ Crear una conexión a la base de datos SQLite """
-    connection = None
+    """Crear una conexión a la base de datos SQLite"""
     try:
         connection = sqlite3.connect(db_file)
-        print("Conexión exitosa a SQLite")
+        connection.row_factory = sqlite3.Row  # Acceso a columnas por nombre
+        print(f"Conexión exitosa a SQLite: {db_file}")
+        return connection
     except sqlite3.Error as e:
-        print(f"El error '{e}' ocurrió")
-    return connection
+        print(f"Error al conectar a SQLite: {e}")
+        return None
 
 def execute_sql_script(connection, script_file):
-    with open(script_file, 'r') as f:
-        sql_script = f.read()
-
-    cursor = connection.cursor()
+    """Ejecutar todas las sentencias SQL desde un archivo .sql"""
+    if not os.path.exists(script_file):
+        print(f"El archivo {script_file} no existe.")
+        return
+    
     try:
-        cursor.executescript(sql_script)  # Ejecutar todas las sentencias SQL del archivo
+        with open(script_file, 'r', encoding="utf-8") as f:
+            sql_script = f.read()
+        
+        cursor = connection.cursor()
+        cursor.executescript(sql_script)
         connection.commit()
-        print("Sentencias SQL ejecutadas correctamente.")
+        print(f"Script {script_file} ejecutado correctamente.")
     except sqlite3.Error as e:
-        print(f"El error '{e}' ocurrió al ejecutar las sentencias.")
+        print(f"Error ejecutando el script SQL: {e}")
 
-# Crear la conexión
-db_file = "sisemasexp.db"  # Archivo de base de datos SQLite
-connection = create_connection(db_file)
+if __name__ == "__main__":
+    db_file = "sisemasexp.db"      # Archivo de base de datos
+    sql_file = "sentencias.sql"    # Script con sentencias SQL
 
-if connection:
-    # Ejecutar las sentencias SQL
-    execute_sql_script(connection, 'sentencias.sql')  # El archivo donde están las sentencias SQL
-
-    # Cerrar la conexión
-    connection.close()
+    conn = create_connection(db_file)
+    if conn:
+        execute_sql_script(conn, sql_file)
+        conn.close()
