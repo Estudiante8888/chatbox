@@ -6,16 +6,16 @@ def create_connection(db_file):
     try:
         connection = sqlite3.connect(db_file)
         connection.row_factory = sqlite3.Row  # Acceso a columnas por nombre
-        print(f"✅ Conexión exitosa a SQLite: {db_file}")
+        print(f"Conexión exitosa a SQLite: {db_file}")
         return connection
     except sqlite3.Error as e:
-        print(f"❌ Error al conectar a SQLite: {e}")
+        print(f"Error al conectar a SQLite: {e}")
         return None
 
 def execute_sql_script(connection, script_file):
     """Ejecutar todas las sentencias SQL desde un archivo .sql"""
     if not os.path.exists(script_file):
-        print(f"❌ El archivo {script_file} no existe.")
+        print(f"El archivo {script_file} no existe.")
         return
     
     try:
@@ -25,9 +25,9 @@ def execute_sql_script(connection, script_file):
         cursor = connection.cursor()
         cursor.executescript(sql_script)
         connection.commit()
-        print(f"✅ Script {script_file} ejecutado correctamente.")
+        print(f"Script {script_file} ejecutado correctamente.")
     except sqlite3.Error as e:
-        print(f"❌ Error ejecutando el script SQL: {e}")
+        print(f"Error ejecutando el script SQL: {e}")
 
 if __name__ == "__main__":
     db_file = "sisemasexp.db"      # Archivo de base de datos

@@ -9,3 +9,19 @@
 .espacio{
     height: 20px;
 }
+  .tabla-programas {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+  }
+  .tabla-programas th, 
+  .tabla-programas td {
+    border: 1px solid #333;
+    padding: 8px;
+  }
+  .tabla-programas th {
+    background-color: #f2f2f2;
+  }
+  .tabla-programas tr:nth-child(even) {
+    background-color: #fafafa;
+  }

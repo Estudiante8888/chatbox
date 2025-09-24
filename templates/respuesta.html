@@ -9,14 +9,4 @@
 <!-- Botón para volver a la página de inserción -->
 <a href="{{ url_for('programas') }}" class="btn btn-primary mt-3"> Insertar otro programa</a>
 
-<hr>
-
-<h2>Lista de Programas</h2>
-<ul>
-  {% for prog in programas %}
-    <li>{{ prog[0] }} - {{ prog[1] }}</li>
-  {% else %}
-    <li>No hay programas registrados.</li>
-  {% endfor %}
-</ul>
 {% endblock %}

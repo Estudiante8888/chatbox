@@ -64,13 +64,17 @@ def programas():
 
 @app.route("/respuesta")
 def respuesta():
+    return render_template("respuesta.html")
+
+@app.route("/listaCarrera")
+def carrera():
     conn = create_connection(DB_FILE)
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM programas;")
     rows = cursor.fetchall()
     conn.close()
 
-    return render_template("respuesta.html", programas=rows)
+    return render_template("listaCarrera.html", programas=rows)
 
 
 if __name__ == "__main__":
