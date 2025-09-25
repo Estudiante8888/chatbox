@@ -1,5 +1,6 @@
 from flask import Flask, render_template, request, redirect, url_for
 from conexion import create_connection
+import sqlite3
 
 app = Flask(__name__)
 DB_FILE = "sisemasexp.db"
@@ -75,6 +76,42 @@ def carrera():
     conn.close()
 
     return render_template("listaCarrera.html", programas=rows)
+
+@app.route("/modificar/<int:id>")
+def modificar_programa(id):
+    conn = create_connection(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM programas WHERE codcarrera = ?", (id,))
+    programa = cursor.fetchone()
+    conn.close()
+
+    if programa:
+        print(dict(programa))  # 👈 imprime los nombres de columna y valores
+        return render_template("modificar.html", programa=programa)
+    else:
+        return "Programa no encontrado", 404
+    
+
+@app.route("/actualizar/<int:id>", methods=["POST"])
+def actualizar_programa(id):
+    nueva_descripcion = request.form["descarrera"]
+    conn = create_connection(DB_FILE)
+    cursor = conn.cursor()    
+    cursor.execute("UPDATE programas SET descarrera = ? WHERE codcarrera = ?", (nueva_descripcion, id))
+    conn.commit()
+    conn.close()
+    
+    return redirect(url_for('carrera'))
+
+
+@app.route("/eliminar/<int:id>", methods=["POST"])
+def eliminar_programa(id):
+    conn = create_connection(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM programas WHERE codcarrera = ?", (id,))
+    conn.commit()
+    conn.close()
+    return redirect(url_for('carrera'))
 
 
 if __name__ == "__main__":

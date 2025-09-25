@@ -10,6 +10,8 @@
     <tr>
       <th>ID</th>
       <th>Nombre</th>
+      <th>Acción</th>
+      <th>Acción</th>
     </tr>
   </thead>
   <tbody>
@@ -17,13 +19,30 @@
       <tr>
         <td>{{ prog[0] }}</td>
         <td>{{ prog[1] }}</td>
+        <td>
+          <form action="/modificar/{{ prog[0] }}" method="get" style="display:inline;">
+            <button type="submit" class="btn btn-primary mt-3">Modificar</button>
+          </form>
+        </td>
+        <td>
+          <form action="{{ url_for('eliminar_programa', id=prog['codcarrera']) }}" method="post" onsubmit="return confirm('¿Estás seguro de eliminar este programa?');">
+            <button type="submit" class="btn btn-primary mt-3">Eliminar</button>
+          </form>
+        </td>
       </tr>
     {% else %}
       <tr>
-        <td colspan="2">No hay programas registrados.</td>
+        <td colspan="4">No hay programas registrados.</td>
       </tr>
     {% endfor %}
   </tbody>
 </table>
+
+<script>
+  function confirmarEliminacion() {
+    return confirm("¿Estás seguro de que deseas eliminar este programa?");
+  }
+</script>
+
 
 {% endblock %}
