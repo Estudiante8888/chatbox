@@ -25,3 +25,11 @@
   .tabla-programas tr:nth-child(even) {
     background-color: #fafafa;
   }
+  .tabla-programas td:nth-child(3),
+  .tabla-programas td:nth-child(4) {
+    text-align: center;
+    vertical-align: middle;
+  }
+  .btn {
+    min-width: 90px;
+  }

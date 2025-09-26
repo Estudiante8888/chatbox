@@ -3,14 +3,112 @@
 {% block title %} Programas {% endblock %}
 
 {% block content %}
-<h1>Programas</h1>
+<div class="row">
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Gestión de Programas</h5>
+            </div>
+            <div class="card-body">
+                <form id="programaForm">
+                    <div class="mb-3">
+                        <label for="codcarrera" class="form-label">Código de carrera:</label>
+                        <input type="number" class="form-control" id="codcarrera" name="codcarrera" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="descarrera" class="form-label">Descripción carrera:</label>
+                        <input type="text" class="form-control" id="descarrera" name="descarrera" placeholder="Digite la carrera" required>
+                    </div>
+                    <div class="d-grid gap-2">
+                        <button type="submit" id="btnAgregar" class="btn btn-success">
+                            <i class="bi bi-plus-circle"></i> Agregar
+                        </button>
+                        <button type="button" id="btnActualizar" class="btn btn-warning" disabled>
+                            <i class="bi bi-pencil-square"></i> Actualizar
+                        </button>
+                        <button type="button" id="btnCancelar" class="btn btn-secondary" style="display: none;">
+                            <i class="bi bi-x-circle"></i> Cancelar
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">Lista de Programas</h5>
+                <span class="badge bg-primary" id="totalProgramas">Total: {{ programas|length }}</span>
+            </div>
+            <div class="card-body">
+                <div id="alertContainer"></div>
+                
+                {% if programas %}
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover" id="tablaProgramas">
+                        <thead class="table-dark">
+                            <tr>
+                                <th scope="col">ID</th>
+                                <th scope="col">Nombre del Programa</th>
+                                <th scope="col" class="text-center">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for prog in programas %}
+                            <tr>
+                                <td><strong>{{ prog[0] }}</strong></td>
+                                <td>{{ prog[1] }}</td>
+                                <td class="text-center">
+                                    <div class="btn-group" role="group">
+                                        <button type="button" class="btn btn-outline-primary btn-sm" 
+                                                onclick="cargarPrograma('{{ prog[0] }}')" 
+                                                title="Modificar">
+                                            <i class="bi bi-pencil"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-outline-danger btn-sm" 
+                                                onclick="eliminarPrograma('{{ prog[0] }}')" 
+                                                title="Eliminar">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-4">
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i>
+                        No hay programas registrados. ¡Agrega el primero!
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
 
-<form action="/programas" method="post">
-  <label for="codcarrera">Código de carrera:</label><br>
-  <input type="number" id="codcarrera" name="codcarrera" required><br><br>
-  <label for="descarrera">Descripción carrera:</label><br>
-  <input type="text" id="descarrera" name="descarrera" placeholder="Digite la carrera" required><br><br>
-  <input type="submit" value="Agregar">
-</form>
+<!-- Modal de confirmación para eliminar -->
+<div class="modal fade" id="modalEliminar" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirmar eliminación</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>¿Estás seguro de que deseas eliminar este programa?</p>
+                <p><strong>Esta acción no se puede deshacer.</strong></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-danger" id="btnConfirmarEliminar">Eliminar</button>
+            </div>
+        </div>
+    </div>
+</div>
 
 {% endblock %}
