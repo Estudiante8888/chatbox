@@ -1,6 +1,16 @@
-.venv
-.env
-
-venv/
+# Entorno y caches
+.venv/
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+
+# VSCode (workspace)
+.vscode/
+
+# Variables / secretos / DB locales
+.env
+*.sqlite3
+sisemaxexp.db
+*.db

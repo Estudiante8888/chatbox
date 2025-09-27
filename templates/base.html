@@ -1,77 +1,107 @@
 <!DOCTYPE html>
 <html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{% block title %}ChatBox{% endblock %}</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
-    <link rel="stylesheet" href="../static/css/style.css">
-</head>
-<body>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='css/style.css') }}"
+    />
+  </head>
+  <body>
     <div class="estimgu">
-        <img src="https://universitariadecolombia.edu.co/wp-content/uploads/2025/04/Logo_universitaria_white_3-1.png" 
-             srcset="https://universitariadecolombia.edu.co/wp-content/uploads/2025/04/Logo_universitaria_white_3-1.png 1x" 
-             alt="Universitaria de Colombia Logo" 
-             data-retina_logo_url="" 
-             class="fusion-standard-logo">
+      <img
+        src="https://universitariadecolombia.edu.co/wp-content/uploads/2025/04/Logo_universitaria_white_3-1.png"
+        alt="Universitaria de Colombia Logo"
+        class="fusion-standard-logo"
+      />
     </div>
-    
+
     <nav class="navbar navbar-expand-sm navbar-dark bg-dark">
-        <div class="container">
-            <a class="navbar-brand" href="{{url_for('index')}}">
-                <i class="bi bi-chat-dots"></i> ChatBox
-            </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
-                    <li class="nav-item">
-                        <a class="nav-link {% if request.endpoint == 'mision' %}active{% endif %}" href="{{url_for('mision')}}">
-                            <i class="bi bi-target"></i> Misión
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link {% if request.endpoint == 'vision' %}active{% endif %}" href="{{url_for('vision')}}">
-                            <i class="bi bi-eye"></i> Visión
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link {% if request.endpoint == 'programas' %}active{% endif %}" href="{{url_for('programas')}}">
-                            <i class="bi bi-book"></i> Programas
-                        </a>
-                    </li>
-                </ul>
-            </div>
+      <div class="container">
+        <a class="navbar-brand" href="{{ url_for('index') }}">
+          <i class="bi bi-chat-dots"></i> ChatBox
+        </a>
+        <button
+          class="navbar-toggler"
+          type="button"
+          data-bs-toggle="collapse"
+          data-bs-target="#navbarNav"
+        >
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+          <ul class="navbar-nav ms-auto">
+            <li class="nav-item">
+              <a
+                class="nav-link {% if request.endpoint == 'mision' %}active{% endif %}"
+                href="{{ url_for('mision') }}"
+              >
+                <i class="bi bi-target"></i> Misión
+              </a>
+            </li>
+            <li class="nav-item">
+              <a
+                class="nav-link {% if request.endpoint == 'vision' %}active{% endif %}"
+                href="{{ url_for('vision') }}"
+              >
+                <i class="bi bi-eye"></i> Visión
+              </a>
+            </li>
+            <li class="nav-item">
+              <a
+                class="nav-link {% if request.endpoint == 'programas' %}active{% endif %}"
+                href="{{ url_for('programas') }}"
+              >
+                <i class="bi bi-book"></i> Programas
+              </a>
+            </li>
+            <li class="nav-item">
+              <a
+                class="nav-link {% if request.endpoint == 'chat' %}active{% endif %}"
+                href="{{ url_for('chat') }}"
+              >
+                <i class="bi bi-robot"></i> Chat
+              </a>
+            </li>
+          </ul>
         </div>
+      </div>
     </nav>
-    
-    <div class="container-fluid mt-4">
-        {% block content %}
-        {% endblock %}
-    </div>
-    
+
+    <div class="container-fluid mt-4">{% block content %}{% endblock %}</div>
+
     <div class="espacio"></div>
-    
+
     <footer class="bg-dark text-light py-3 mt-5">
-        <div class="container text-center">
-            <p class="mb-0">
-                <a href="https://www.google.com" target="_blank" class="text-decoration-none text-light">
-                    <i class="bi bi-globe"></i> Visítenos en Internet
-                </a>
-            </p>
-        </div>
+      <div class="container text-center">
+        <p class="mb-0">
+          <a
+            href="https://www.google.com"
+            target="_blank"
+            class="text-decoration-none text-light"
+          >
+            <i class="bi bi-globe"></i> Visítenos en Internet
+          </a>
+        </p>
+      </div>
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    
-    <!-- Scripts específicos por página -->
+
     {% if request.endpoint == 'programas' %}
-    <script src="../static/js/programas.js"></script>
-    {% endif %}
-    
-    {% block extra_js %}
-    {% endblock %}
-</body>
+    <script src="{{ url_for('static', filename='js/programas.js') }}"></script>
+    {% endif %} {% if request.endpoint == 'chat' %}
+    <script src="{{ url_for('static', filename='js/chat.js') }}"></script>
+    {% endif %} {% block extra_js %}{% endblock %}
+  </body>
 </html>

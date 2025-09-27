@@ -1,0 +1,65 @@
+{% extends 'base.html' %} {% block title %} Chat {% endblock %} {% block content
+%}
+<div class="row justify-content-center">
+  <div class="col-lg-6">
+    <div class="card shadow-sm">
+      <div class="card-header d-flex align-items-center">
+        <i class="bi bi-robot me-2"></i>
+        <strong>Asistente</strong>
+      </div>
+      <div class="card-body">
+        <div
+          id="chatLog"
+          class="chat-log mb-3 border rounded p-3"
+          style="height: 380px; overflow-y: auto; background: #0f0f14"
+        ></div>
+
+        <!-- Chips de preguntas rápidas -->
+        <div id="quickChips" class="mb-3 d-flex flex-wrap gap-2">
+          <button
+            type="button"
+            class="btn btn-sm btn-outline-secondary"
+            data-q="lista de programas"
+          >
+            Lista de programas
+          </button>
+          <button
+            type="button"
+            class="btn btn-sm btn-outline-secondary"
+            data-q="buscar programacion"
+          >
+            Buscar programacion
+          </button>
+          <button
+            type="button"
+            class="btn btn-sm btn-outline-secondary"
+            data-q="codigo 3"
+          >
+            Código 3
+          </button>
+          <button
+            type="button"
+            class="btn btn-sm btn-outline-secondary"
+            data-q="ayuda"
+          >
+            ¿Qué puedes hacer?
+          </button>
+        </div>
+
+        <form id="chatForm" class="d-flex gap-2">
+          <input
+            id="chatInput"
+            type="text"
+            class="form-control"
+            placeholder="Escribe tu mensaje... (ej: 'lista de programas', 'buscar programacion', 'codigo 3')"
+            autocomplete="off"
+          />
+          <button class="btn btn-primary" type="submit">
+            <i class="bi bi-send"></i>
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

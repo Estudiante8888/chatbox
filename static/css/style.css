@@ -1,35 +1,50 @@
 .estimgu {
-    background-color: darkblue; 
-    padding:20px;
+  background-color: darkblue;
+  padding: 20px;
 }
-.fusion-standard-logo{
-    width:250px;
-    height:65px;
+.fusion-standard-logo {
+  width: 250px;
+  height: 65px;
 }
-.espacio{
-    height: 20px;
+.espacio {
+  height: 20px;
 }
-  .tabla-programas {
-    width: 100%;
-    border-collapse: collapse;
-    text-align: left;
-  }
-  .tabla-programas th, 
-  .tabla-programas td {
-    border: 1px solid #333;
-    padding: 8px;
-  }
-  .tabla-programas th {
-    background-color: #f2f2f2;
-  }
-  .tabla-programas tr:nth-child(even) {
-    background-color: #fafafa;
-  }
-  .tabla-programas td:nth-child(3),
-  .tabla-programas td:nth-child(4) {
-    text-align: center;
-    vertical-align: middle;
-  }
-  .btn {
-    min-width: 90px;
-  }
+.tabla-programas {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+.tabla-programas th,
+.tabla-programas td {
+  border: 1px solid #333;
+  padding: 8px;
+}
+.tabla-programas th {
+  background-color: #f2f2f2;
+}
+.tabla-programas tr:nth-child(even) {
+  background-color: #fafafa;
+}
+.tabla-programas td:nth-child(3),
+.tabla-programas td:nth-child(4) {
+  text-align: center;
+  vertical-align: middle;
+}
+.btn {
+  min-width: 90px;
+}
+
+.chat-log .text-end > div {
+  background-color: #0d6efd; /* user bubble (Bootstrap primary) */
+}
+
+.chat-log .text-start > div {
+  background-color: #2b2f3a; /* bot bubble */
+}
+
+.chat-log .text-end > div {
+  background-color: #0d6efd;
+}
+.chat-log .text-start > div {
+  background-color: #2b2f3a;
+}
