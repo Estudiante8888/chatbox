@@ -4,9 +4,27 @@ import sqlite3
 import re
 import difflib
 import unicodedata
+import os
+
+# cargar variables de entorno desde .env (si existe)
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except Exception:
+    pass
+
+# ====== Gemini ======
+try:
+    import google.generativeai as genai
+except Exception:
+    genai = None  # por si no está instalado
 
 app = Flask(__name__)
 DB_FILE = "sisemasexp.db"
+
+# Modelo por defecto (puedes cambiar a gemini-1.5-flash para menor costo/latencia)
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-1.5-pro")
+
 
 # =============== PÁGINAS BÁSICAS ===============
 @app.route("/")
@@ -145,13 +163,19 @@ def chat():
 def api_chat():
     data = request.get_json(silent=True) or {}
     user_msg = (data.get("message") or "").strip()
-    reply = generate_reply(user_msg)
+
+    # Si coincide con nuestros comandos locales, usar lógica local
+    if _should_use_rules(user_msg):
+        reply = generate_reply(user_msg)
+        return jsonify({"reply": reply})
+
+    # Si no, intentar Gemini
+    reply = ask_gemini(user_msg)
     return jsonify({"reply": reply})
 
 
-# ----------- “IA” simple (reglas + BD) -----------
+# ----------- Utilidades “IA” local -----------
 def normalize(text: str) -> str:
-    """Quita acentos y pone en minúsculas para comparar mejor."""
     t = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode("ascii")
     return t.lower().strip()
 
@@ -166,15 +190,27 @@ def fetch_programs():
 
 
 def _suggest_names(keyword_norm, nombres_norm_map, n=3):
-    """Devuelve hasta n nombres similares al keyword_norm."""
     keys = list(nombres_norm_map.keys())
     matches = difflib.get_close_matches(keyword_norm, keys, n=n, cutoff=0.5)
     if not matches:
-        # fallback: substring
         matches = [k for k in keys if keyword_norm in k][:n]
     if matches:
         return [nombres_norm_map[m] for m in matches]
     return []
+
+
+def _should_use_rules(message: str) -> bool:
+    if not message:
+        return True
+    msg = normalize(message)
+    triggers = [
+        "hola", "buenas", "gracias", "ayuda",
+        "lista", "listar", "ver", "mostrar", "catalogo",
+        "codigo", "id",
+        "buscar", "busca", "tienen", "ofrecen", "programa de", "programas de", "hay",
+        "mision", "vision"
+    ]
+    return any(t in msg for t in triggers)
 
 
 def generate_reply(message: str) -> str:
@@ -206,7 +242,7 @@ def generate_reply(message: str) -> str:
             "Ejemplos: 'lista de programas', 'buscar programacion', 'codigo 3'."
         )
 
-    # Lista de programas (sinónimos)
+    # Lista de programas
     if any(k in msg for k in ["lista", "listar", "ver", "mostrar", "catalogo"]) and any(
         k in msg for k in ["program", "carrera"]
     ):
@@ -231,10 +267,9 @@ def generate_reply(message: str) -> str:
             if row:
                 return f"El código {cod} corresponde a: {row[0]}."
             return f"No encontré un programa con código {cod}."
-        # pidió 'codigo' pero sin número
         return "Dime el número de código, por ejemplo: 'codigo 2'."
 
-    # Búsqueda por nombre (varias palabras + sugerencias)
+    # Búsqueda por nombre
     if any(
         p in msg
         for p in ["buscar", "busca", "tienen", "ofrecen", "programa de", "programas de", "hay"]
@@ -246,7 +281,6 @@ def generate_reply(message: str) -> str:
         nombres = [d for _, d in progs]
         nombres_norm_map = {normalize(n): n for n in nombres}
 
-        # palabras relevantes
         palabras = [w for w in re.findall(r"[a-zA-Záéíóúñ]+", msg) if len(w) > 3]
         stop = {"buscar", "busca", "programa", "programas", "tienen", "ofrecen", "hay", "de", "en", "una"}
         keywords = [normalize(w) for w in palabras if normalize(w) not in stop]
@@ -257,7 +291,6 @@ def generate_reply(message: str) -> str:
         candidatos = []
         for kw in keywords:
             candidatos.extend(_suggest_names(kw, nombres_norm_map, n=3))
-        # únicos manteniendo orden, top 3
         candidatos = list(dict.fromkeys(candidatos))[:3]
 
         if candidatos:
@@ -281,12 +314,67 @@ def generate_reply(message: str) -> str:
             "Nuestra visión es ser referentes por la excelencia académica y el impacto social."
         )
 
-    # Fallback
+    # Fallback (si cae aquí, igual intentaremos Gemini desde el endpoint)
     return (
         "No estoy seguro de entenderte 🤔. "
         "Puedo listar programas, buscar por nombre o por código. "
         "Ejemplos: 'lista de programas', 'buscar programacion', 'codigo 2'."
     )
+
+
+# ----------- Gemini: llamada a API -----------
+def _gemini_available() -> bool:
+    api_key = os.getenv("GEMINI_API_KEY", "").strip()
+    return bool(api_key) and genai is not None
+
+
+def _build_context() -> str:
+    progs = fetch_programs()
+    lista = "; ".join([f"{c}: {d}" for c, d in progs]) or "sin programas cargados"
+    return (
+        "Contexto de la Universidad:\n"
+        f"- Programas disponibles (codigo: nombre): {lista}.\n"
+        "- Responde SIEMPRE en español. Sé conciso y útil.\n"
+        "- Si el usuario pide algo que no está en la lista, aclara la limitación.\n"
+    )
+
+
+def ask_gemini(user_msg: str) -> str:
+    if not _gemini_available():
+        return (
+            "La IA externa no está configurada. Define la variable de entorno "
+            "GEMINI_API_KEY y reinicia la app."
+        )
+
+    api_key = os.getenv("GEMINI_API_KEY").strip()
+    genai.configure(api_key=api_key)
+
+    system_prompt = (
+        "Eres un asistente académico útil de la Universitaria de Colombia. "
+        "Responde en español, de forma clara y breve (máx. 120 palabras). "
+        "Nunca inventes datos académicos: usa el contexto provisto."
+    )
+
+    context = _build_context()
+    try:
+        model = genai.GenerativeModel(GEMINI_MODEL)
+        response = model.generate_content(
+            [
+                {"text": system_prompt},
+                {"text": context},
+                {"text": f"Usuario: {user_msg}"},
+            ],
+            generation_config={
+                "temperature": 0.6,
+                "top_p": 0.9,
+                "top_k": 40,
+                "max_output_tokens": 512,
+            },
+        )
+        text = getattr(response, "text", "") or ""
+        return text.strip() or "No obtuve respuesta del modelo."
+    except Exception as e:
+        return f"No pude consultar la IA en este momento. Detalle: {e}"
 
 
 # =============== APP ===============
