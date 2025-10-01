@@ -5,15 +5,20 @@ import re
 import difflib
 import unicodedata
 import os
+from datetime import datetime
+try:
+    from zoneinfo import ZoneInfo  # Python 3.9+
+except Exception:
+    ZoneInfo = None  # por si no está disponible
 
-# cargar variables de entorno desde .env (si existe)
+# ---- .env opcional ----
 try:
     from dotenv import load_dotenv
     load_dotenv()
 except Exception:
     pass
 
-# ====== Gemini ======
+# ---- Gemini ----
 try:
     import google.generativeai as genai
 except Exception:
@@ -22,11 +27,26 @@ except Exception:
 app = Flask(__name__)
 DB_FILE = "sisemasexp.db"
 
-# Modelo por defecto (puedes cambiar a gemini-1.5-flash para menor costo/latencia)
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-1.5-pro")
+# Modelo por defecto (sugiero flash por disponibilidad/latencia)
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
 
+# === Mapeo simple ciudad -> zona horaria (puedes ampliarlo) ===
+CITY_TZ = {
+    "nueva york": "America/New_York",
+    "new york": "America/New_York",
+    "bogota": "America/Bogota",
+    "colombia": "America/Bogota",
+    "mexico": "America/Mexico_City",
+    "ciudad de mexico": "America/Mexico_City",
+    "lima": "America/Lima",
+    "santiago": "America/Santiago",
+    "buenos aires": "America/Argentina/Buenos_Aires",
+    "madrid": "Europe/Madrid",
+    "londres": "Europe/London",
+    "paris": "Europe/Paris",
+}
 
-# =============== PÁGINAS BÁSICAS ===============
+# =================== PÁGINAS BÁSICAS ===================
 @app.route("/")
 def index():
     return render_template("index.html")
@@ -61,12 +81,11 @@ def vision():
         )
         conn.commit()
         conn.close()
-
         return "✅ Datos guardados en la base de datos"
     return render_template("vision.html")
 
 
-# =============== PROGRAMAS (CRUD SENCILLO) ===============
+# =================== PROGRAMAS (CRUD) ===================
 @app.route("/programas", methods=["GET", "POST"])
 def programas():
     conn = create_connection(DB_FILE)
@@ -109,7 +128,6 @@ def programas():
             conn.close()
             return jsonify({"success": False, "message": f"Error: {str(e)}"})
 
-    # GET: listar
     cursor.execute("SELECT * FROM programas ORDER BY codcarrera")
     rows = cursor.fetchall()
     conn.close()
@@ -153,7 +171,7 @@ def obtener_programa(id):
     return jsonify({"success": False, "message": "Programa no encontrado"}), 404
 
 
-# =============== CHAT (UI + API) ===============
+# =================== CHAT (UI + API) ===================
 @app.route("/chat")
 def chat():
     return render_template("chat.html")
@@ -164,17 +182,42 @@ def api_chat():
     data = request.get_json(silent=True) or {}
     user_msg = (data.get("message") or "").strip()
 
-    # Si coincide con nuestros comandos locales, usar lógica local
+    # 1) Hechos/respuestas rápidas locales (para enriquecer Gemini)
+    quick_bits = []
+
+    t = _maybe_time_answer(user_msg)
+    if t:
+        quick_bits.append(f"[HORA] {t}")
+
+    m = _maybe_math_answer(user_msg)
+    if m:
+        quick_bits.append(f"[MATE] {m}")
+
     if _should_use_rules(user_msg):
-        reply = generate_reply(user_msg)
-        return jsonify({"reply": reply})
+        quick_bits.append(f"[REGLAS] {generate_reply(user_msg)}")
 
-    # Si no, intentar Gemini
-    reply = ask_gemini(user_msg)
-    return jsonify({"reply": reply})
+    # 2) Si hay Gemini, SIEMPRE lo consultamos con el contexto local como ayuda
+    if _gemini_available():
+        reply = ask_gemini(user_msg, extra_context="\n".join(quick_bits))
+        # Si por alguna razón viniera vacío, caemos a lo local
+        if reply:
+            return jsonify({"reply": reply})
+
+    # 3) Sin Gemini o error: devolver lo mejor que tengamos localmente
+    if quick_bits:
+        # Prioriza lo más específico (mate/hora) o la última regla
+        return jsonify({"reply": quick_bits[-1].split("] ", 1)[-1]})
+
+    # 4) Fallback amable (siempre hay respuesta)
+    return jsonify({
+        "reply": (
+            "Puedo ayudarte con preguntas generales, hora por ciudad y operaciones básicas. "
+            "También conozco la lista de programas. ¿Qué necesitas?"
+        )
+    })
 
 
-# ----------- Utilidades “IA” local -----------
+# ----------------- Utilidades locales -----------------
 def normalize(text: str) -> str:
     t = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode("ascii")
     return t.lower().strip()
@@ -215,32 +258,23 @@ def _should_use_rules(message: str) -> bool:
 
 def generate_reply(message: str) -> str:
     if not message:
-        return (
-            "Escríbeme algo y con gusto te ayudo 🙂. "
-            "Puedo listar programas, buscar por nombre o por código."
-        )
+        return ("Puedo listar programas, buscar por nombre o por código. "
+                "Ejemplos: 'lista de programas', 'buscar programacion', 'codigo 2'.")
 
     msg = normalize(message)
 
     # Saludos / cortesía
-    if any(
-        p in msg
-        for p in ["hola", "buenas", "buenos dias", "buenas tardes", "buenas noches", "hey"]
-    ):
-        return (
-            "¡Hola! Soy el asistente de la Universitaria. "
-            "Puedo listar programas, buscar uno por nombre o por código."
-        )
+    if any(p in msg for p in ["hola", "buenas", "buenos dias", "buenas tardes", "buenas noches", "hey"]):
+        return ("¡Hola! Soy el asistente de la Universitaria. "
+                "Puedo listar programas, buscar uno por nombre o por código.")
 
     if any(p in msg for p in ["gracias", "muchas gracias", "mil gracias"]):
         return "¡Con gusto! ¿Necesitas algo más?"
 
     if "ayuda" in msg or "que puedes hacer" in msg:
-        return (
-            "Puedo: 1) listar los programas, 2) buscar un programa por nombre, "
-            "3) decirte qué programa corresponde a un código. "
-            "Ejemplos: 'lista de programas', 'buscar programacion', 'codigo 3'."
-        )
+        return ("Puedo: 1) listar los programas, 2) buscar por nombre, "
+                "3) decir qué programa corresponde a un código. "
+                "Ejemplos: 'lista', 'buscar programacion', 'codigo 3'.")
 
     # Lista de programas
     if any(k in msg for k in ["lista", "listar", "ver", "mostrar", "catalogo"]) and any(
@@ -259,9 +293,7 @@ def generate_reply(message: str) -> str:
             cod = int(match_id.group(1))
             conn = create_connection(DB_FILE)
             cursor = conn.cursor()
-            cursor.execute(
-                "SELECT descarrera FROM programas WHERE codcarrera = ?", (cod,)
-            )
+            cursor.execute("SELECT descarrera FROM programas WHERE codcarrera = ?", (cod,))
             row = cursor.fetchone()
             conn.close()
             if row:
@@ -270,10 +302,7 @@ def generate_reply(message: str) -> str:
         return "Dime el número de código, por ejemplo: 'codigo 2'."
 
     # Búsqueda por nombre
-    if any(
-        p in msg
-        for p in ["buscar", "busca", "tienen", "ofrecen", "programa de", "programas de", "hay"]
-    ):
+    if any(p in msg for p in ["buscar", "busca", "tienen", "ofrecen", "programa de", "programas de", "hay"]):
         progs = fetch_programs()
         if not progs:
             return "No hay programas cargados todavía."
@@ -298,85 +327,197 @@ def generate_reply(message: str) -> str:
             items = [f"- {progs_map[nom]}: {nom}" for nom in candidatos]
             return "Encontré esto que se parece a lo que buscas:\n" + "\n".join(items)
 
-        return (
-            "No encontré un programa que coincida. "
-            "Prueba con otra palabra (ej.: 'programacion', 'redes', 'analisis')."
-        )
+        return ("No encontré un programa que coincida. "
+                "Prueba con otra palabra (ej.: 'programacion', 'redes', 'analisis').")
 
     # Misión / Visión
     if "mision" in msg:
-        return (
-            "Nuestra misión es formar profesionales íntegros con competencias para "
-            "transformar su entorno mediante el conocimiento."
-        )
+        return ("Nuestra misión es formar profesionales íntegros con competencias para "
+                "transformar su entorno mediante el conocimiento.")
     if "vision" in msg:
-        return (
-            "Nuestra visión es ser referentes por la excelencia académica y el impacto social."
-        )
+        return "Nuestra visión es ser referentes por la excelencia académica y el impacto social."
 
-    # Fallback (si cae aquí, igual intentaremos Gemini desde el endpoint)
-    return (
-        "No estoy seguro de entenderte 🤔. "
-        "Puedo listar programas, buscar por nombre o por código. "
-        "Ejemplos: 'lista de programas', 'buscar programacion', 'codigo 2'."
-    )
+    # Fallback de reglas (igual consultaremos a Gemini)
+    return ("")  # vacío a propósito para no bloquear respuestas
 
 
-# ----------- Gemini: llamada a API -----------
+# ----------------- Hora actual (local) -----------------
+def _maybe_time_answer(message: str) -> str | None:
+    msg = normalize(message)
+    if "hora" not in msg:
+        return None
+
+    # Detectar ciudad
+    tz = None
+    city_found = None
+    for key, zone in CITY_TZ.items():
+        if key in msg:
+            tz = zone
+            city_found = key
+            break
+
+    try:
+        if tz and ZoneInfo:
+            now = datetime.now(ZoneInfo(tz))
+            txt_city = city_found.title()
+            return f"La hora en {txt_city} es {now.strftime('%H:%M')} del {now.strftime('%Y-%m-%d')}."
+        else:
+            # hora local del sistema
+            now_local = datetime.now().astimezone()
+            tzname = getattr(now_local.tzinfo, "key", getattr(now_local.tzinfo, "tzname", lambda x=None: "local")())
+            return f"La hora local es {now_local.strftime('%H:%M')} del {now_local.strftime('%Y-%m-%d')} ({tzname})."
+    except Exception:
+        now = datetime.now()
+        return f"La hora (aprox. local) es {now.strftime('%H:%M')} del {now.strftime('%Y-%m-%d')}."
+
+
+# ----------------- Aritmética básica (segura) -----------------
+def _maybe_math_answer(message: str) -> str | None:
+    msg = normalize(message)
+
+    # reemplazos de palabras por operadores
+    word_ops = {
+        r"\bmas\b": "+",
+        r"\bmenos\b": "-",
+        r"\bpor\b": "*",
+        r"\bx\b": "*",
+        r"\bentre\b": "/",
+        r"\bdividido\b": "/",
+        r"\bmod(ulo)?\b": "%",
+        r"\belevado\b": "**",
+        r"\bpotencia\b": "**",
+    }
+    tmp = msg
+    for pat, op in word_ops.items():
+        tmp = re.sub(pat, f" {op} ", tmp)
+
+    # buscar una expresión aritmética simple
+    m = re.search(r"(-?\d+(?:[.,]\d+)?(?:\s*[\+\-\*\/\%\(\)\^]\s*-?\d+(?:[.,]\d+)?)*)", tmp)
+    if not m:
+        return None
+
+    expr = m.group(1)
+    expr = expr.replace(",", ".")
+    expr = expr.replace("^", "**")
+
+    # validar caracteres permitidos
+    if not re.fullmatch(r"[\d\.\+\-\*\/\%\(\)\s\*]*", expr):
+        return None
+
+    # evaluar de forma segura con AST
+    try:
+        import ast
+        import operator as op
+
+        ops = {
+            ast.Add: op.add,
+            ast.Sub: op.sub,
+            ast.Mult: op.mul,
+            ast.Div: op.truediv,
+            ast.Mod: op.mod,
+            ast.Pow: op.pow,
+            ast.USub: op.neg,
+            ast.UAdd: op.pos,
+            ast.FloorDiv: op.floordiv,
+        }
+
+        def _eval(node):
+            if isinstance(node, ast.Num):
+                return node.n
+            if hasattr(ast, "Constant") and isinstance(node, ast.Constant):
+                if isinstance(node.value, (int, float)):
+                    return node.value
+                raise ValueError("constante no numérica")
+            if isinstance(node, ast.BinOp):
+                return ops[type(node.op)](_eval(node.left), _eval(node.right))
+            if isinstance(node, ast.UnaryOp):
+                return ops[type(node.op)](_eval(node.operand))
+            if isinstance(node, ast.Expression):
+                return _eval(node.body)
+            raise ValueError("expresión no permitida")
+
+        node = ast.parse(expr, mode="eval")
+        result = _eval(node)
+        if isinstance(result, float) and result.is_integer():
+            result = int(result)
+        return f"Resultado: {result}"
+    except Exception:
+        return None
+
+
+# ----------------- Gemini: llamada a API -----------------
 def _gemini_available() -> bool:
     api_key = os.getenv("GEMINI_API_KEY", "").strip()
     return bool(api_key) and genai is not None
 
 
-def _build_context() -> str:
+def _build_context(extra: str = "") -> str:
     progs = fetch_programs()
     lista = "; ".join([f"{c}: {d}" for c, d in progs]) or "sin programas cargados"
-    return (
+    now_iso = datetime.now().astimezone().isoformat(timespec="seconds")
+    ctx = (
         "Contexto de la Universidad:\n"
         f"- Programas disponibles (codigo: nombre): {lista}.\n"
-        "- Responde SIEMPRE en español. Sé conciso y útil.\n"
-        "- Si el usuario pide algo que no está en la lista, aclara la limitación.\n"
+        f"- Hora actual del servidor: {now_iso}.\n"
+        "- Si la pregunta es sobre la universidad, usa estos datos.\n"
+        "- Si es una pregunta general, respóndela normalmente.\n"
     )
+    if extra:
+        ctx += f"\nHechos locales:\n{extra}\n"
+    return ctx
 
 
-def ask_gemini(user_msg: str) -> str:
-    if not _gemini_available():
-        return (
-            "La IA externa no está configurada. Define la variable de entorno "
-            "GEMINI_API_KEY y reinicia la app."
-        )
-
-    api_key = os.getenv("GEMINI_API_KEY").strip()
-    genai.configure(api_key=api_key)
-
-    system_prompt = (
-        "Eres un asistente académico útil de la Universitaria de Colombia. "
-        "Responde en español, de forma clara y breve (máx. 120 palabras). "
-        "Nunca inventes datos académicos: usa el contexto provisto."
-    )
-
-    context = _build_context()
+def ask_gemini(user_msg: str, extra_context: str = "") -> str:
     try:
-        model = genai.GenerativeModel(GEMINI_MODEL)
-        response = model.generate_content(
-            [
-                {"text": system_prompt},
-                {"text": context},
-                {"text": f"Usuario: {user_msg}"},
-            ],
-            generation_config={
-                "temperature": 0.6,
-                "top_p": 0.9,
-                "top_k": 40,
-                "max_output_tokens": 512,
-            },
+        if not _gemini_available():
+            return ""
+
+        api_key = os.getenv("GEMINI_API_KEY").strip()
+        genai.configure(api_key=api_key)
+
+        system_prompt = (
+            "Eres un asistente útil y confiable. Responde SIEMPRE en español, "
+            "con claridad y brevedad. Si hay 'Hechos locales', respétalos y "
+            "úsalos en tu respuesta. Si la pregunta es general, respóndela "
+            "normalmente. Si no estás seguro, di la mejor aproximación."
         )
-        text = getattr(response, "text", "") or ""
-        return text.strip() or "No obtuve respuesta del modelo."
-    except Exception as e:
-        return f"No pude consultar la IA en este momento. Detalle: {e}"
+        context = _build_context(extra_context)
+
+        def _call(model_name: str) -> str:
+            model = genai.GenerativeModel(model_name=model_name)
+            resp = model.generate_content(
+                [
+                    {"text": system_prompt},
+                    {"text": context},
+                    {"text": f"Usuario: {user_msg}"},
+                ],
+                generation_config={
+                    "temperature": 0.6,
+                    "top_p": 0.9,
+                    "top_k": 40,
+                    "max_output_tokens": 512,
+                },
+            )
+            return (getattr(resp, "text", "") or "").strip()
+
+        model_primary = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+        try:
+            text = _call(model_primary)
+            if text:
+                return text
+        except Exception:
+            # Fallback de modelo
+            try:
+                text = _call("gemini-2.5-flash")
+                if text:
+                    return text
+            except Exception:
+                return ""
+        return ""
+    except Exception:
+        return ""
 
 
-# =============== APP ===============
+# =================== APP ===================
 if __name__ == "__main__":
     app.run(host="127.0.0.1", port=5050, debug=True)
